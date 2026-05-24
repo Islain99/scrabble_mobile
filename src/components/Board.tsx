@@ -1,15 +1,15 @@
 // src/components/Board.tsx
-// Le plateau 15x15 avec placement par tap (pas DnD — voir TileRack pour le flow).
-// Flow tactile : tap sur une tuile du rack la "sélectionne", puis tap sur une case vide la pose.
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Dimensions } from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import {
+  View, Text, StyleSheet, TouchableOpacity,
+  Dimensions, Animated,
+} from 'react-native';
 import { COLORS, FONTS } from '../constants';
 import { GameState, Placement, Tile } from '../types';
 
 const SCREEN_W = Dimensions.get('window').width;
-// Plateau = largeur écran moins padding latéral (16*2) et bordures
 const BOARD_SIZE = SCREEN_W - 32;
-const CELL_SIZE = Math.floor((BOARD_SIZE - 24) / 15); // 24 = padding interne board
+const CELL_SIZE = Math.floor((BOARD_SIZE - 24) / 15);
 
 const BONUS_COLORS: Record<string, { bg: string; label: string; text: string }> = {
   TM:    { bg: '#8B2020', label: '3M', text: '#F5D0C0' },
@@ -19,123 +19,223 @@ const BONUS_COLORS: Record<string, { bg: string; label: string; text: string }> 
   START: { bg: '#8B4A20', label: '★',  text: '#FFE8C0' },
 };
 
-const getBonus = (r: number, c: number): string | null => {
-  if (r === 7 && c === 7) return 'START';
-  if ([0,7,14].includes(r) && [0,7,14].includes(c)) return 'TM';
-  if ((r === c || r + c === 14) && [1,2,3,4,10,11,12,13].includes(r) && r !== 7 && c !== 7) return 'DM';
-  if (([1,13].includes(r) && [5,9].includes(c)) || ([5,9].includes(r) && [1,5,9,13].includes(c))) return 'TL';
-  if (
-    ([0,14].includes(r) && [3,11].includes(c)) ||
-    ([2,12].includes(r) && [6,8].includes(c)) ||
-    ([3,11].includes(r) && [0,7,14].includes(c)) ||
-    ([6,8].includes(r) && [2,6,8,12].includes(c)) ||
-    (r === 7 && [3,11].includes(c))
-  ) return 'DL';
-  return null;
-};
+import { BONUS_MAP } from '../constants'; // Fix 5
+const getBonus = (r: number, c: number): string | null =>
+  BONUS_MAP[`${r}-${c}`] ?? null;
 
+// ── Cellule vide disponible (pulse doré) ───────────────────────
+function AvailableCell({
+  onPress, bonus, size,
+}: {
+  onPress: () => void;
+  bonus: { bg: string; label: string; text: string } | null;
+  size: number;
+}) {
+  const pulse = useRef(new Animated.Value(0.3)).current;
+
+  useEffect(() => {
+    const anim = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulse, { toValue: 1,   duration: 600, useNativeDriver: true }),
+        Animated.timing(pulse, { toValue: 0.3, duration: 600, useNativeDriver: true }),
+      ])
+    );
+    anim.start();
+    return () => anim.stop();
+  }, []);
+
+  return (
+    <TouchableOpacity
+      onPress={onPress}
+      activeOpacity={0.6}
+      style={[styles.cell, { backgroundColor: bonus?.bg ?? 'rgba(45,90,39,0.6)' }]}
+    >
+      {/* Overlay doré qui pulse */}
+      <Animated.View
+        style={[
+          styles.pulseOverlay,
+          {
+            opacity: pulse,
+            width: size,
+            height: size,
+            borderColor: '#C8A830',
+          },
+        ]}
+      />
+      {bonus && (
+        <Text style={[styles.bonusLabel, { color: bonus.text, fontSize: size * 0.28 }]}>
+          {bonus.label}
+        </Text>
+      )}
+    </TouchableOpacity>
+  );
+}
+
+// ── Tuile temporaire (pulse vert + ↩) ─────────────────────────
+function TempTileCell({
+  tile, onPress, size,
+}: {
+  tile: { letter: string; score: number };
+  onPress: () => void;
+  size: number;
+}) {
+  const pulse = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    const anim = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulse, { toValue: 0.7, duration: 700, useNativeDriver: true }),
+        Animated.timing(pulse, { toValue: 1.0, duration: 700, useNativeDriver: true }),
+      ])
+    );
+    anim.start();
+    return () => anim.stop();
+  }, []);
+
+  const fontSize = size * 0.42;
+  const scoreFontSize = size * 0.22;
+
+  return (
+    <TouchableOpacity
+      onPress={onPress}
+      activeOpacity={0.6}
+      style={styles.cell}
+    >
+      <Animated.View
+        style={[
+          styles.tileInner,
+          {
+            backgroundColor: COLORS.tileTemp,
+            borderColor: COLORS.tileTempBorder,
+            opacity: pulse,
+          },
+        ]}
+      >
+        <Text style={[styles.tileLetter, { fontSize, color: '#2A4A10' }]}>
+          {tile.letter === '*' ? '★' : tile.letter}
+        </Text>
+        {tile.score > 0 && (
+          <Text style={[styles.tileScore, { fontSize: scoreFontSize, color: '#4A7A10' }]}>
+            {tile.score}
+          </Text>
+        )}
+        {/* Icône retour */}
+        <Text style={[styles.returnHint, { fontSize: size * 0.22 }]}>↩</Text>
+      </Animated.View>
+    </TouchableOpacity>
+  );
+}
+
+// ── Tuile permanente (pas d'interaction) ──────────────────────
+function PermTileCell({
+  tile, size,
+}: {
+  tile: { letter: string; score: number };
+  size: number;
+}) {
+  const fontSize = size * 0.42;
+  const scoreFontSize = size * 0.22;
+
+  return (
+    <View style={[styles.cell, { opacity: 1 }]}>
+      <View style={[styles.tileInner, {
+        backgroundColor: COLORS.tileBg,
+        borderColor: COLORS.tileBorder,
+      }]}>
+        <Text style={[styles.tileLetter, { fontSize, color: '#2A1800' }]}>
+          {tile.letter === '*' ? '★' : tile.letter}
+        </Text>
+        {tile.score > 0 && (
+          <Text style={[styles.tileScore, { fontSize: scoreFontSize, color: '#6B4010' }]}>
+            {tile.score}
+          </Text>
+        )}
+      </View>
+    </View>
+  );
+}
+
+// ── Cellule vide neutre (aucune tuile sélectionnée) ───────────
+function EmptyCell({
+  bonus, size,
+}: {
+  bonus: { bg: string; label: string; text: string } | null;
+  size: number;
+}) {
+  return (
+    <View style={[styles.cell, { backgroundColor: bonus?.bg ?? 'rgba(45,90,39,0.6)' }]}>
+      {bonus && (
+        <Text style={[styles.bonusLabel, { color: bonus.text, fontSize: size * 0.28 }]}>
+          {bonus.label}
+        </Text>
+      )}
+    </View>
+  );
+}
+
+// ── Board principal ───────────────────────────────────────────
 interface Props {
   gameState: GameState;
   placements: Placement[];
-  selectedRackTile: Tile | null; // tuile sélectionnée dans le rack, prête à être posée
-  onCellPress: (r: number, c: number) => void; // tap sur une case vide
-  onTempTilePress: (r: number, c: number) => void; // tap sur une tuile temporaire = retour rack
+  selectedRackTile: Tile | null;
+  onCellPress: (r: number, c: number) => void;
+  onTempTilePress: (r: number, c: number) => void;
 }
 
 export default function Board({
-  gameState,
-  placements,
-  selectedRackTile,
-  onCellPress,
-  onTempTilePress,
+  gameState, placements, selectedRackTile, onCellPress, onTempTilePress,
 }: Props) {
   const grid = gameState.board.grid;
 
-  // Map des tuiles temporaires pour lookup rapide
   const tempMap: Record<string, Placement> = {};
   placements.forEach(p => { tempMap[`${p.r}-${p.c}`] = p; });
 
-  // Grille fusionnée
-  const mergedGrid = grid.map((row, r) =>
-    row.map((cell, c) => {
-      const temp = tempMap[`${r}-${c}`];
-      return temp ? { tile: temp.originalTile, isTemp: true } : { tile: cell, isTemp: false };
-    })
-  );
-
-  const fontSize = CELL_SIZE * 0.42;
-  const scoreFontSize = CELL_SIZE * 0.22;
-
   return (
     <View style={styles.boardWrapper}>
-      {/* Rivets */}
       <View style={[styles.rivet, { top: 4, left: 4 }]} />
       <View style={[styles.rivet, { top: 4, right: 4 }]} />
       <View style={[styles.rivet, { bottom: 4, left: 4 }]} />
       <View style={[styles.rivet, { bottom: 4, right: 4 }]} />
 
       <View style={styles.grid}>
-        {mergedGrid.map((row, r) => (
+        {grid.map((row, r) => (
           <View key={r} style={styles.row}>
-            {row.map(({ tile, isTemp }, c) => {
+            {row.map((cell, c) => {
               const bonusKey = getBonus(r, c);
               const bonus = bonusKey ? BONUS_COLORS[bonusKey] : null;
-              const isPerm = grid[r][c] !== null;
-              const isEmpty = !tile;
-              const canDrop = isEmpty && selectedRackTile !== null;
+              const temp = tempMap[`${r}-${c}`];
+              const isPerm = cell !== null;
 
-              let cellBg = bonus?.bg ?? 'rgba(45,90,39,0.6)';
-              if (tile) cellBg = 'transparent';
-              if (canDrop) cellBg = 'rgba(200,168,48,0.3)';
+              // 1. Tuile permanente
+              if (isPerm) {
+                return <PermTileCell key={c} tile={cell!} size={CELL_SIZE} />;
+              }
 
-              return (
-                <TouchableOpacity
-                  key={c}
-                  activeOpacity={isPerm ? 1 : 0.7}
-                  onPress={() => {
-                    if (isTemp) {
-                      onTempTilePress(r, c);
-                    } else if (isEmpty) {
-                      onCellPress(r, c);
-                    }
-                  }}
-                  style={[
-                    styles.cell,
-                    { backgroundColor: cellBg },
-                    canDrop && styles.cellHighlight,
-                  ]}
-                >
-                  {tile ? (
-                    // Tuile posée
-                    <View style={[
-                      styles.tileInner,
-                      {
-                        backgroundColor: isTemp ? COLORS.tileTemp : COLORS.tileBg,
-                        borderColor: isTemp ? COLORS.tileTempBorder : COLORS.tileBorder,
-                      },
-                    ]}>
-                      <Text style={[styles.tileLetter, { fontSize, color: isTemp ? '#2A4A10' : '#2A1800' }]}>
-                        {tile.letter === '*' ? '★' : tile.letter}
-                      </Text>
-                      {tile.score > 0 && (
-                        <Text style={[styles.tileScore, { fontSize: scoreFontSize, color: isTemp ? '#4A7A10' : '#6B4010' }]}>
-                          {tile.score}
-                        </Text>
-                      )}
-                      {/* Indicateur tap pour retour */}
-                      {isTemp && (
-                        <Text style={styles.returnHint}>↩</Text>
-                      )}
-                    </View>
-                  ) : (
-                    bonus && (
-                      <Text style={[styles.bonusLabel, { color: bonus.text, fontSize: CELL_SIZE * 0.28 }]}>
-                        {bonus.label}
-                      </Text>
-                    )
-                  )}
-                </TouchableOpacity>
-              );
+              // 2. Tuile temporaire (posée ce tour)
+              if (temp) {
+                return (
+                  <TempTileCell
+                    key={c}
+                    tile={temp.originalTile}
+                    onPress={() => onTempTilePress(r, c)}
+                    size={CELL_SIZE}
+                  />
+                );
+              }
+
+              // 3. Case vide — pulse si tuile sélectionnée, sinon neutre
+              if (selectedRackTile) {
+                return (
+                  <AvailableCell
+                    key={c}
+                    onPress={() => onCellPress(r, c)}
+                    bonus={bonus}
+                    size={CELL_SIZE}
+                  />
+                );
+              }
+
+              return <EmptyCell key={c} bonus={bonus} size={CELL_SIZE} />;
             })}
           </View>
         ))}
@@ -168,14 +268,8 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.gold,
     zIndex: 2,
   },
-  grid: {
-    gap: 1,
-    backgroundColor: '#1A3A18',
-  },
-  row: {
-    flexDirection: 'row',
-    gap: 1,
-  },
+  grid: { gap: 1, backgroundColor: '#1A3A18' },
+  row: { flexDirection: 'row', gap: 1 },
   cell: {
     width: CELL_SIZE,
     height: CELL_SIZE,
@@ -184,9 +278,11 @@ const styles = StyleSheet.create({
     borderRadius: 1,
     overflow: 'hidden',
   },
-  cellHighlight: {
-    borderWidth: 1,
-    borderColor: 'rgba(200,168,48,0.8)',
+  pulseOverlay: {
+    position: 'absolute',
+    borderRadius: 2,
+    borderWidth: 1.5,
+    backgroundColor: 'rgba(200,168,48,0.18)',
   },
   tileInner: {
     width: '100%',
@@ -200,7 +296,6 @@ const styles = StyleSheet.create({
   tileLetter: {
     fontFamily: FONTS.playfair,
     fontWeight: '700',
-    lineHeight: undefined,
   },
   tileScore: {
     fontFamily: FONTS.dmMono,
@@ -210,16 +305,14 @@ const styles = StyleSheet.create({
   },
   returnHint: {
     position: 'absolute',
-    top: 0,
-    left: 1,
-    fontSize: 7,
-    color: '#4A7A10',
-    opacity: 0.7,
+    top: 1,
+    left: 2,
+    color: '#3A6A08',
+    opacity: 0.85,
   },
   bonusLabel: {
-    fontFamily: FONTS.dmMonoMedium,
+    fontFamily: FONTS.dmMono,
     fontWeight: '700',
     textAlign: 'center',
-    lineHeight: undefined,
   },
 });

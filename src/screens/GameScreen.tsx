@@ -1,5 +1,5 @@
 // src/screens/GameScreen.tsx
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, Alert, Modal,
   TouchableOpacity, ActivityIndicator,
@@ -20,6 +20,7 @@ interface Props {
   activePlayerId: number;
   availableRackTiles: Tile[];
   selectedForSwap: string[];
+  error: string | null;
   onDropTile: (rackIndex: number, r: number, c: number) => void;
   onMoveTile: (fromR: number, fromC: number, toR: number, toC: number) => void;
   onReturnTile: (r: number, c: number) => void;
@@ -28,17 +29,28 @@ interface Props {
   onShuffle: () => void;
   onToggleSwap: (letter: string) => void;
   onSwap: () => void;
+  onClearSwap: () => void;
+  onClearError: () => void;
 }
 
 export default function GameScreen({
   gameState, placements, previewScore, isLoading, activePlayerId,
-  availableRackTiles, selectedForSwap,
+  availableRackTiles, selectedForSwap, error,
   onDropTile, onMoveTile, onReturnTile,
-  onValidate, onPass, onShuffle, onToggleSwap, onSwap,
+  onValidate, onPass, onShuffle, onToggleSwap, onSwap, 
+  onClearSwap, onClearError,
 }: Props) {
   // Tuile du rack sélectionnée pour placement
   const [selectedRackTile, setSelectedRackTile] = useState<{ tile: Tile; index: number } | null>(null);
   const [showSwapPanel, setShowSwapPanel] = useState(false);
+
+  useEffect(() => {
+    if (error) {
+      Alert.alert('Erreur réseau', error, [
+        { text: 'OK', onPress: onClearError }
+      ]);
+    }
+  }, [error]);
 
   const currentPlayer = gameState.players[gameState.current_player_index];
   const isSwapMode = showSwapPanel;
@@ -48,7 +60,7 @@ export default function GameScreen({
   const handleRackTilePress = useCallback((tile: Tile, index: number) => {
     if (isAITurn) return;
     setSelectedRackTile(prev =>
-      prev?.tile === tile ? null : { tile, index }
+      prev?.index === index ? null : { tile, index }
     );
   }, [isAITurn]);
 
@@ -118,7 +130,7 @@ export default function GameScreen({
   ];
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top']}>
+    <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
 
       {/* Header */}
       <View style={styles.header}>
@@ -209,7 +221,12 @@ export default function GameScreen({
             <View style={styles.modalButtons}>
               <TouchableOpacity
                 style={[styles.modalBtn, { borderColor: COLORS.ink }]}
-                onPress={() => { setShowSwapPanel(false); }}
+                onPress={() => {
+                  setShowSwapPanel(false);
+                  onClearSwap();
+                  // vider la sélection si l'utilisateur ferme sans confirmer
+                  selectedForSwap.forEach(() => {}); // pas d'accès direct → passer un callback
+                }}
               >
                 <Text style={[styles.modalBtnText, { color: COLORS.ink }]}>Annuler</Text>
               </TouchableOpacity>

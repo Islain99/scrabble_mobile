@@ -41,6 +41,7 @@ export default function Index() {
       activePlayerId={game.activePlayerId}
       availableRackTiles={game.availableRackTiles}
       selectedForSwap={game.selectedForSwap}
+      error={game.error}
       onDropTile={game.dropTile}
       onMoveTile={game.moveTile}
       onReturnTile={game.returnTile}
@@ -49,6 +50,8 @@ export default function Index() {
       onShuffle={game.shuffleRack}
       onToggleSwap={game.toggleTileForSwap}
       onSwap={game.swapTiles}
+      onClearSwap={game.clearSwap}
+      onClearError={game.clearError}
     />
   );
 }

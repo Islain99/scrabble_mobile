@@ -1,6 +1,7 @@
 // src/components/ActionBar.tsx
 // Barre d'actions en bas de l'écran de jeu.
 import React from 'react';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { COLORS, FONTS } from '../constants';
 
@@ -25,8 +26,10 @@ export default function ActionBar({ buttons, previewScore, placementCount }: Pro
     tobacco:  { bg: 'transparent',  border: COLORS.tobacco, text: COLORS.tobaccoDk },
   };
 
+  const insets = useSafeAreaInsets();
+
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingBottom: insets.bottom + 8 }]}>
       {/* Score preview */}
       {placementCount > 0 && (
         <View style={styles.preview}>
