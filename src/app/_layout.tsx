@@ -17,7 +17,7 @@ import {
   LibreBaskerville_400Regular_Italic,
 } from '@expo-google-fonts/libre-baskerville';
 import { View, ActivityIndicator } from 'react-native';
-import { COLORS } from '../src/constants';
+import { COLORS } from '../constants';
 
 export default function RootLayout() {
   const [fontsLoaded] = useFonts({

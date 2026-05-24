@@ -1,45 +1,30 @@
 {
   "expo": {
-    "name": "scrabble_mobile",
-    "slug": "scrabble_mobile",
+    "name": "Scrabble",
+    "slug": "scrabble-mobile",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
-    "scheme": "scrabblemobile",
-    "userInterfaceStyle": "automatic",
-    "splash": {
-      "backgroundColor": "#F5EDD6"
-    },
+    "userInterfaceStyle": "light",
+    "scheme": "scrabble",
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.islainkouam.scrabble"
+      "bundleIdentifier": "com.islain.scrabble"
     },
     "android": {
+      "package": "com.islain.scrabble",
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE"
-      },
-      "package": "com.islainkouam.scrabble"
+        "backgroundColor": "#F5EDD6"
+      }
     },
     "web": {
-      "output": "static",
-      "favicon": "./assets/images/favicon.png"
+      "bundler": "metro"
     },
     "plugins": [
-      "expo-router", "expo-font",
-      [
-        "expo-splash-screen",
-        {
-          "backgroundColor": "#208AEF",
-          "android": {
-            "image": "./assets/images/splash-icon.png",
-            "imageWidth": 76
-          }
-        }
-      ]
+      "expo-router",
+      "expo-font"
     ],
     "experiments": {
-      "typedRoutes": true,
-      "reactCompiler": true
+      "typedRoutes": true
     }
   }
 }

@@ -1,10 +1,10 @@
 // app/index.tsx
 // Point d'entrée principal — orchestre StartScreen, GameScreen, EndScreen.
 import React from 'react';
-import StartScreen from '../src/screens/StartScreen';
-import GameScreen from '../src/screens/GameScreen';
-import EndScreen from '../src/screens/EndScreen';
-import { useGameLogic } from '../src/hooks/useGameLogic';
+import StartScreen from '../screens/StartScreen';
+import GameScreen from '../screens/GameScreen';
+import EndScreen from '../screens/EndScreen';
+import { useGameLogic } from '../hooks/useGameLogic';
 
 export default function Index() {
   const game = useGameLogic();
